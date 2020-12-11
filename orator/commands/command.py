@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import os
-from cleo import Command as BaseCommand, InputOption, ListInput
-from orator import DatabaseManager
+
 import yaml
+from cleo import Command as BaseCommand
+from cleo import option
+from orator import DatabaseManager
 
 
 class Command(BaseCommand):
@@ -17,35 +19,37 @@ class Command(BaseCommand):
 
         super(Command, self).__init__()
 
-    def configure(self):
-        super(Command, self).configure()
-
         if self.needs_config and not self.resolver:
             # Checking if a default config file is present
             if not self._check_config():
-                self.add_option(
-                    "config", "c", InputOption.VALUE_REQUIRED, "The config file path"
+                self._config._format_builder.add_option(
+                    option(
+                        "config",
+                        "c",
+                        "The config file path",
+                        flag=False,
+                        value_required=True,
+                    )
                 )
 
-    def execute(self, i, o):
-        """
-        Executes the command.
-        """
-        self.set_style("question", fg="blue")
+    def wrap_handle(self, args, io, command):
+        self._args = args
+        self._io = io
+        self._command = command
 
         if self.needs_config and not self.resolver:
-            self._handle_config(self.option("config"))
+            self._handle_config(args.option("config"))
 
         return self.handle()
 
     def call(self, name, options=None):
-        command = self.get_application().find(name)
+        command = self.application.find(name)
         command.resolver = self.resolver
 
         return super(Command, self).call(name, options)
 
     def call_silent(self, name, options=None):
-        command = self.get_application().find(name)
+        command = self.application.find(name)
         command.resolver = self.resolver
 
         return super(Command, self).call_silent(name, options)
@@ -123,7 +127,7 @@ class Command(BaseCommand):
             config = {}
 
             with open(path) as fh:
-                exec(fh.read(), {}, config)
+                exec(fh.read(), {"__name__": ""}, config)
         else:
             raise RuntimeError("Config file [%s] is not supported." % path)
 
